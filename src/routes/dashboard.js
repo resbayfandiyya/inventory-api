@@ -49,12 +49,13 @@ router.get(
     try {
       const [rows] = await db.query(`
         SELECT
+          YEAR(created_at) AS year,
           MONTH(created_at) AS month_number,
-          DATE_FORMAT(created_at, '%b') AS month,
+          DATE_FORMAT(MIN(created_at), '%b') AS month,
           SUM(total_amount) AS revenue
         FROM sales
-        GROUP BY MONTH(created_at)
-        ORDER BY MONTH(created_at)
+        GROUP BY YEAR(created_at), MONTH(created_at)
+        ORDER BY YEAR(created_at), MONTH(created_at)
       `);
 
       res.json(rows);
