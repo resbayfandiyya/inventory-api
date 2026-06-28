@@ -10,10 +10,53 @@ router.get(
   authMiddleware,
   async (req, res) => {
     try {
-      const [rows] = await db.query(
-        "SELECT * FROM inventory ORDER BY id DESC"
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || "";
+
+      const offset = (page - 1) * limit;
+
+      let where = "";
+      let params = [];
+
+      if (search) {
+        where = `
+          WHERE
+            name LIKE ?
+            OR category LIKE ?
+        `;
+
+        params.push(`%${search}%`, `%${search}%`);
+      }
+
+      const [[{ total }]] = await db.query(
+        `
+        SELECT COUNT(*) AS total
+        FROM inventory
+        ${where}
+        `,
+        params
       );
-      res.json(rows);
+
+      const [rows] = await db.query(
+        `
+        SELECT *
+        FROM inventory
+        ${where}
+        ORDER BY id DESC
+        LIMIT ?
+        OFFSET ?
+        `,
+        [...params, limit, offset]
+      );
+
+      res.json({
+        data: rows,
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+      });
+
     } catch (error) {
       res.status(500).json({
         message: error.message,
