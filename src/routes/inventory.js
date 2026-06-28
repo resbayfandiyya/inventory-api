@@ -10,30 +10,34 @@ router.get(
   authMiddleware,
   async (req, res) => {
     try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 10;
       const search = req.query.search || "";
 
       const offset = (page - 1) * limit;
 
-      let where = "";
-      let params = [];
+      const searchQuery = `%${search}%`;
 
-      if (search) {
-        where = `
-          WHERE
-            name LIKE ?
-            OR category LIKE ?
-        `;
+      let whereClause = `
+        WHERE (
+          name LIKE ?
+          OR category LIKE ?
+        )
+      `;
 
-        params.push(`%${search}%`, `%${search}%`);
+      const params = [searchQuery, searchQuery];
+
+      // If no search, remove WHERE clause and params
+      if (!search) {
+        whereClause = "";
+        params.length = 0;
       }
 
-      const [[{ total }]] = await db.query(
+      const [[totalData]] = await db.query(
         `
-        SELECT COUNT(*) AS total
+        SELECT COUNT(DISTINCT id) AS total
         FROM inventory
-        ${where}
+        ${whereClause}
         `,
         params
       );
@@ -42,21 +46,20 @@ router.get(
         `
         SELECT *
         FROM inventory
-        ${where}
+        ${whereClause}
         ORDER BY id DESC
-        LIMIT ?
-        OFFSET ?
+        LIMIT ? OFFSET ?
         `,
         [...params, limit, offset]
       );
 
       res.json({
         data: rows,
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalItems: total,
+        total: totalData.total,
+        page,
+        limit,
+        totalPages: Math.ceil(totalData.total / limit),
       });
-
     } catch (error) {
       res.status(500).json({
         message: error.message,
@@ -104,6 +107,7 @@ router.post(
     }
   }
 );
+
 
 // PUT update inventory
 router.put("/:id", async (req, res) => {
