@@ -4,6 +4,32 @@ const router = express.Router();
 const db = require("../config/db");
 const authMiddleware = require("../middleware/authMiddleware");
 
+router.get(
+  "/category/:category",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { category } = req.params;
+
+      const [rows] = await db.query(
+        `
+        SELECT *
+        FROM inventory
+        WHERE category = ?
+        ORDER BY id DESC
+        `,
+        [category]
+      );
+
+      res.json(rows);
+    } catch (error) {
+      res.status(500).json({
+        message: error.message,
+      });
+    }
+  }
+);
+
 // GET all inventory (with authMiddleware)
 router.get(
   "/",
